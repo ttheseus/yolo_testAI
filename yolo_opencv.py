@@ -228,12 +228,12 @@ net.setInput(blob)
 # |         |           image into 'blob' to be used as input
 # |         |           into the nn (blob is a 'preprocessed
 # |         |           format')
-# |         |        > image - og image to be processed
-# |         |        > scale - normalization factor
-# |         |        > (416,416) - resized image dimensions
-# |         |        > (0,0,0) - not sure??
-# |         |        > True - also not sure what this does
-# |         |        > crop=False - makes sure image won't be
+# |         |        >> image - og image to be processed
+# |         |        >> scale - normalization factor
+# |         |        >> (416,416) - resized image dimensions
+# |         |        >> (0,0,0) - not sure??
+# |         |        >> True - also not sure what this does
+# |         |        >> crop=False - makes sure image won't be
 # |         |          cropped
 # |         | 
 # |         | > setting blob as input to model {165}
@@ -247,6 +247,16 @@ net.setInput(blob)
 
 # 2025-01-10
 #-------------------------------------------------------------#
+# |
+# |
+# |   ## ##  :
+# |  ####### | [ run inference ]
+# |   #####  |    -> processes output
+# |     #    |         
+# |          :
+# |
+# |
+# :
 outs = net.forward(get_output_layers(net))
 
 class_ids = []
@@ -270,11 +280,91 @@ for out in outs:
             class_ids.append(class_id)
             confidences.append(float(confidence))
             boxes.append([x, y, w, h])
+# :
+# |
+# |   ### ###             
+# |  #########           
+# |   ## [ section notes ]
+# |     ### | > processes raw output of YOLO nn model, filter-
+# |      #  |     ing detections based on confidence scores of
+# |         |     > 0.5. extracts class IDs, confidence score 
+# |         |     & bounding box coordinates. stores the data
+# |         |     in lists for further processing
+# |         | 
+# |         | > getting YOLO net input
+# |         |      1) outs = net.forward(get_output_layers(net)):
+# |         |         runs forward pass through net & retrieves 
+# |         |         outputs from the specifies layers in get_
+# |         |         output_layers(net). net.forward() performs
+# |         |         the actual inference on the input
+# |         |      2) output 'outs' is list of detections that co-
+# |         |         rresponds to the objects detected in the im-
+# |         |         age
+# |         |
+# |         | > initialization 
+# |         |      1) sets up empty lists & thresholds
+# |         |      >> class_ids = [] - object label IDs
+# |         |      >> confidences = [] - confidences for each
+# |         |         detection
+# |         |      >> boxes = [] - stores bounding box coords 
+# |         |         (x, y, width, height)
+# |         |      >> conf_threshold = 0.5 - minimum confiden-
+# |         |         ce threshold to consider the object is 
+# |         |         detected
+# |         |      >> nms_threshold = 0.4 - used for nms supp-
+# |         |         ression - decides whether or not 2 boxes
+# |         |         overlap too much
+# |         |  
+# |         | > loop through output 
+# |         |      1) outs: contains all predictions made by 
+# |         |         YOLO. the loop iterates through each det-
+# |         |         ection made by the model
+# |         |      2) detection[5:]: each detection contains an
+# |         |         array. the first 5 values represent the 
+# |         |         centre coords (x, y), width, height and c-
+# |         |         onfidence. the rest are class scores
+# |         |      3) np.argmax(scores): finds ID of highest sc-
+# |         |         ore in the scores array. 
+# |         |      4) confidence = scores[class_id]: likelihood
+# |         |         of the prediction being correct
+# |         |      5) if confidence > 0.5: checks if the confi-
+# |         |         should be discards (under 0.5) or not
+# |         |      6) calculating bounding box coords:
+# |         |           >> from center_x = ... to y = center_y 
+# |         |              - h/2
+# |         |           a) YOLO outputs bounding box parameters
+# |         |              relative to the image width and hei-
+# |         |              ght (scaled b/w 0 and 1). multipy th-
+# |         |              em by the actual width and height of
+# |         |              the image to get the bounding box in
+# |         |              px coords -> basically de-normalize
+# |         |           b) center_x/center_y: centre coords of 
+# |         |              bounding box
+# |         |           c) w, g: width & height of bounding box
+# |         |           d) final x & y: top left corner of boun-
+# |         |              ding box
+# |         |      
+# |         | > storing results
+# |         |      1) class_id, confidence, and bounding box 
+# |         |         appended to respective lists
+# |         |      
+# |         :
+# |
 #-------------------------------------------------------------#
 
 
 
 #-------------------------------------------------------------#
+# |
+# |
+# |   ## ##  :
+# |  ####### | [ non-max suppression ]
+# |   #####  |    -> filter overlapping boxes, drawing detect-
+# |     #    |         ed objects on the image
+# |          :
+# |
+# |
+# :
 indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
 
 if len(indices) > 0:
@@ -288,4 +378,35 @@ cv2.waitKey()
 
 cv2.imwrite("object-detection.jpg", image)
 cv2.destroyAllWindows()
+# :
+# |
+# |   ### ###             
+# |  #########           
+# |   ## [ section notes ]
+# |     ### | > nms: used to remove redundancy -> in this case
+# |      #  |   multiple bounding boxes are drawn. nms removes
+# |         |   the excess boxes
+# |         |      1) cv2.dnn.NMSBoxes: returns indices of the
+# |         |         boxes that are kept after nms is applied
+# |         |      
+# |         | > loop through remaining indices
+# |         |      1) indices.flatten(): converts the list of
+# |         |         indices to an array
+# |         |      2) for each index i, a corresponding box is
+# |         |         retrieved from the boxes list
+# |         |      3) draw_prediction(...): draws the bounding
+# |         |         box -> calling on previous defined func-
+# |         |         tion
+# |         |  
+# |         | > display and save the image
+# |         |      1) cv2.imshow(...): displays the image in a
+# |         |         findow with title "object detection"
+# |         |      2) cv2.waitKey(): key press detection to cl-
+# |         |         ose the image
+# |         |      3) cv2.imwrite(...): saves the image (.jpg)
+# |         |      4) cv2.destroyAllWindows(): closes opencv w-
+# |         |         indows opened during the process
+# |         |      
+# |         :
+# |
 #-------------------------------------------------------------#
